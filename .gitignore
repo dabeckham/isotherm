@@ -1,0 +1,27 @@
+# Secrets & host-specific config
+.env
+config/stations.yaml
+config/sensors.yaml
+
+# Floorplan images & any real placement data are private — never commit them.
+config/floorplans/*
+!config/floorplans/.gitkeep
+
+# Captured data
+data/
+*.jsonl
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node / web build (later phases)
+node_modules/
+web/dist/
+web/.vite/
+
+# Editor / OS
+.DS_Store
+*.swp
+*.local

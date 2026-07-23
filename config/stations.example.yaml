@@ -1,0 +1,19 @@
+# Receivers (RTL-SDR stations). Copy to stations.yaml (git-ignored) and fill in
+# real values. One entry per property/building as coverage expands.
+#
+# lat/lon place the receiver on the wide-area map. Use approximate values you
+# are comfortable keeping in local config; real coordinates are never committed.
+
+stations:
+  - station_id: sl-main
+    label: "Site A — main"
+    site: A
+    lat: 30.0000        # placeholder
+    lon: -95.0000       # placeholder
+    notes: "Primary receiver co-located with the server."
+
+  # - station_id: b-north
+  #   label: "Site B — north building"
+  #   site: B
+  #   lat: 30.0100
+  #   lon: -95.0100

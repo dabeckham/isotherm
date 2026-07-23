@@ -1,0 +1,29 @@
+# Sensor placement. Copy to sensors.yaml (git-ignored) and fill in.
+#
+# Sensors auto-register on their first packet as "unassigned"; this file (or the
+# dashboard, later) names and places them. sensor_key is '<model>/<id>[/<channel>]'
+# exactly as it appears in the sensors table / ingest log.
+#
+# Two ways to place a sensor:
+#   - map: lat/lon for the wide-area / satellite map.
+#   - floorplan: floorplan_id + normalized x,y (0..1) on that floorplan image.
+
+sensors:
+  - sensor_key: "Acurite-Tower/13432/A"
+    friendly_name: "Example — living room"
+    kind: temp_humidity
+    site: A
+    building: "Main"
+    floor: "1"
+    room: "Living Room"
+    lat: 30.0001         # placeholder
+    lon: -95.0001        # placeholder
+    floorplan_id: "main-floor-1"
+    floor_x: 0.42        # 0..1 across the floorplan image
+    floor_y: 0.61        # 0..1 down the floorplan image
+
+  # - sensor_key: "Acurite-986/64014/2F"
+  #   friendly_name: "Example — chest freezer"
+  #   kind: fridge_freezer
+  #   site: A
+  #   room: "Garage"

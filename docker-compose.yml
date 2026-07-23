@@ -1,0 +1,102 @@
+name: isotherm
+
+# Isotherm — 433 MHz environmental sensor network.
+# Pipeline:  RTL-SDR -> rtl_433 -> MQTT (local broker) -> ingest bridge -> TimescaleDB
+#
+# The stack is self-contained: it ships its own MQTT broker and database so it
+# can run on any host with an RTL-SDR dongle without touching other services.
+# All host-specific values (station id, timezone, credentials) come from .env.
+
+services:
+  # ---- Local MQTT broker -------------------------------------------------
+  broker:
+    image: eclipse-mosquitto:2
+    container_name: isotherm-broker
+    restart: unless-stopped
+    volumes:
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - broker-data:/mosquitto/data
+    networks: [isotherm]
+    # WebSockets (9001) is used by the browser dashboard for live updates.
+    # ports:
+    #   - "${MQTT_WS_PORT:-9101}:9001"
+
+  # ---- SDR capture / decode ---------------------------------------------
+  # Passes the USB dongle through with a cgroup rule (major 189 = usb) plus a
+  # bind mount, so the container is NOT privileged. librtlsdr detaches the DVB
+  # kernel driver on start and reattaches on stop — no host blacklist required.
+  rtl433:
+    image: hertzg/rtl_433:latest
+    container_name: isotherm-rtl433
+    restart: unless-stopped
+    depends_on: [broker]
+    device_cgroup_rules:
+      - 'c 189:* rmw'
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - ./data/raw:/data/raw
+    networks: [isotherm]
+    command:
+      - "-f"
+      - "${RTL_FREQ:-433.92M}"
+      - "-M"
+      - "level"
+      - "-M"
+      - "protocol"
+      - "-F"
+      - "mqtt://broker:1883,events=isotherm/events,devices=isotherm/devices[/model][/id][/channel]"
+
+  # ---- Time-series database ---------------------------------------------
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: isotherm-tsdb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGUSER:-isotherm}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-isotherm}
+      POSTGRES_DB: ${PGDATABASE:-isotherm}
+    volumes:
+      - tsdb-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks: [isotherm]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-isotherm} -d ${PGDATABASE:-isotherm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # ports:
+    #   - "${PG_PORT:-5433}:5432"
+
+  # ---- Ingest bridge: MQTT JSON -> TimescaleDB --------------------------
+  ingest:
+    build: ./ingest
+    image: isotherm-ingest:latest
+    container_name: isotherm-ingest
+    restart: unless-stopped
+    depends_on:
+      broker:
+        condition: service_started
+      timescaledb:
+        condition: service_healthy
+    environment:
+      MQTT_HOST: broker
+      MQTT_PORT: "1883"
+      MQTT_TOPIC: isotherm/events
+      STATION_ID: ${STATION_ID:-sl-main}
+      TZ_NAME: ${TZ_NAME:-America/Chicago}
+      PGHOST: timescaledb
+      PGUSER: ${PGUSER:-isotherm}
+      PGPASSWORD: ${PGPASSWORD:-isotherm}
+      PGDATABASE: ${PGDATABASE:-isotherm}
+      RAW_DIR: /data/raw
+    volumes:
+      - ./data/raw:/data/raw
+    networks: [isotherm]
+
+networks:
+  isotherm:
+    driver: bridge
+
+volumes:
+  tsdb-data:
+  broker-data:

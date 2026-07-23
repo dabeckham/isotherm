@@ -1,0 +1,2 @@
+# Drop floorplan images here (PNG/SVG). They are git-ignored — private to your
+# deployment. Reference them by floorplan_id in config/sensors.yaml.
