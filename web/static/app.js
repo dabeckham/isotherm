@@ -103,6 +103,13 @@ function fmtAgo(iso) {
   return `${Math.round(s / 3600)}h ago`;
 }
 
+const latlon = ll => ({ lat: +ll.lat.toFixed(7), lon: +ll.lng.toFixed(7) });
+function assignSensor(key, body) {
+  return fetch(`/api/sensors/${encodeURIComponent(key)}/assign`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    .then(() => refresh()).catch(() => {});
+}
+
 let sensorMarks = {};
 
 function renderSensors(rows) {
@@ -134,6 +141,13 @@ function renderSensors(rows) {
       <canvas width="290" height="46"></canvas>`;
     card.onclick = () => loadHistory(r.sensor_key, card.querySelector("canvas"), r.kind);
     box.appendChild(card);
+    const nameEl = card.querySelector(".name");
+    nameEl.title = "click to rename";
+    nameEl.onclick = ev => {
+      ev.stopPropagation();
+      const v = prompt("Name this sensor:", r.friendly_name || "");
+      if (v !== null) assignSensor(r.sensor_key, { friendly_name: v.trim() });
+    };
     loadHistory(r.sensor_key, card.querySelector("canvas"), r.kind);
 
     // marker: placed sensors at their coords; unassigned jittered around SL
@@ -143,9 +157,13 @@ function renderSensors(rows) {
       lat = sl.lat + Math.sin(ang) * rad; lon = sl.lon + Math.cos(ang) * rad;
     }
     if (sensorMarks[r.sensor_key]) layers.sensors.removeLayer(sensorMarks[r.sensor_key]);
-    const m = L.circleMarker([lat, lon], { radius: 8, color: "#0f1319", weight: 2,
-      fillColor: col, fillOpacity: .95, className: "sensor-mark" })
-      .bindTooltip(`${label}: ${f != null ? f.toFixed(1) + "°F" : "—"}`, { direction: "top" });
+    const icon = L.divIcon({ className: "",
+      html: `<div class="sensor-mark" style="background:${col}"></div>`,
+      iconSize: [18, 18], iconAnchor: [9, 9] });
+    const m = L.marker([lat, lon], { icon, draggable: true })
+      .bindTooltip(`${label}: ${f != null ? f.toFixed(1) + "°F" : "—"}${r.assigned ? "" : " (drag to place)"}`,
+        { direction: "top" });
+    m.on("dragend", e => assignSensor(r.sensor_key, latlon(e.target.getLatLng())));
     m.addTo(layers.sensors);
     sensorMarks[r.sensor_key] = m;
   });

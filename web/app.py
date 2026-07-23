@@ -36,6 +36,22 @@ def query(sql, args=()):
         conn.close()
 
 
+def execute(sql, args=()):
+    conn = psycopg2.connect(**PG)
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, args)
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+# Columns a client may set when naming/placing a sensor (whitelist).
+ASSIGNABLE = ("friendly_name", "site", "building", "floor", "room",
+              "lat", "lon", "floor_x", "floor_y", "floorplan_id")
+
+
 @app.route("/")
 def index():
     return send_from_directory(app.static_folder, "index.html")
@@ -89,6 +105,33 @@ def sensor_history(key):
     for r in rows:
         r["b"] = r["b"].isoformat()
     return jsonify(rows)
+
+
+@app.route("/api/sensors/<path:key>/assign", methods=["POST"])
+def assign(key):
+    data = request.get_json(force=True, silent=True) or {}
+    cols = [c for c in ASSIGNABLE if c in data]
+    if not cols:
+        return jsonify({"error": "no assignable fields"}), 400
+    vals = [data[c] for c in cols]
+    if any(c in data for c in ("lat", "lon", "floor_x", "floor_y")):
+        cols.append("assigned")
+        vals.append(True)
+    set_clause = ", ".join(f"{c} = %s" for c in cols)
+    vals.append(key)
+    n = execute(f"UPDATE sensors SET {set_clause} WHERE sensor_key = %s", vals)
+    return jsonify({"ok": True, "updated": n})
+
+
+@app.route("/api/sensors/<path:key>/unassign", methods=["POST"])
+def unassign(key):
+    execute(
+        """UPDATE sensors SET assigned = false, lat = NULL, lon = NULL,
+                              floor_x = NULL, floor_y = NULL
+           WHERE sensor_key = %s""",
+        (key,),
+    )
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":
