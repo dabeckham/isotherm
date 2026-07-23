@@ -2,6 +2,9 @@
 .env
 config/stations.yaml
 config/sensors.yaml
+config/estate.geojson
+config/*.geojson
+config/*.kml
 
 # Floorplan images & any real placement data are private — never commit them.
 config/floorplans/*
