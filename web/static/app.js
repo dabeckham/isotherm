@@ -112,14 +112,25 @@ function assignSensor(key, body) {
 
 let sensorMarks = {};
 
+const ENV_KINDS = new Set(["temperature", "temp_humidity", "fridge_freezer"]);
+const KIND_LABEL = { tpms: "TPMS · tire pressure", security: "Security contacts",
+  remote: "Remotes / buttons", other: "Other 433" };
+
 function renderSensors(rows) {
+  const env = rows.filter(r => ENV_KINDS.has(r.kind));
+  const other = rows.filter(r => !ENV_KINDS.has(r.kind));
   document.getElementById("stats").innerHTML = `
-    <div class="stat"><div class="n">${rows.length}</div><div class="l">sensors</div></div>
-    <div class="stat"><div class="n">${rows.filter(r => r.assigned).length}</div><div class="l">placed</div></div>`;
+    <div class="stat"><div class="n">${env.length}</div><div class="l">environmental</div></div>
+    <div class="stat"><div class="n">${env.filter(r => r.assigned).length}</div><div class="l">placed</div></div>
+    <div class="stat"><div class="n">${other.length}</div><div class="l">other 433</div></div>`;
+
+  layers.sensors.clearLayers();
+  sensorMarks = {};
   const box = document.getElementById("sensors");
   box.innerHTML = "";
   const sl = sites.SL || { lat: 30.4204, lon: -95.5612 };
-  rows.forEach((r, i) => {
+
+  env.forEach((r, i) => {
     const f = r.temperature_f != null ? r.temperature_f
       : (r.temperature_c != null ? r.temperature_c * 9 / 5 + 32 : null);
     const col = f != null ? tempColor(f, r.kind) : "#556";
@@ -134,7 +145,7 @@ function renderSensors(rows) {
         <span class="temp">${f != null ? f.toFixed(1) + "°F" : "—"}</span></div>
       <div class="meta">
         ${r.humidity != null ? `<span>${Math.round(r.humidity)}% RH</span>` : ""}
-        <span class="badge ${cold ? "cold" : ""}">${cold ? "cold-chain" : (r.kind || "sensor")}</span>
+        <span class="badge ${cold ? "cold" : ""}">${cold ? "cold-chain" : r.kind}</span>
         <span>${r.battery_ok ? "batt ok" : "batt low"}</span>
         <span>${r.rssi != null ? Math.round(r.rssi) + " dBm" : ""}</span>
         <span>${fmtAgo(r.at_utc)}</span></div>
@@ -150,13 +161,11 @@ function renderSensors(rows) {
     };
     loadHistory(r.sensor_key, card.querySelector("canvas"), r.kind);
 
-    // marker: placed sensors at their coords; unassigned jittered around SL
     let lat = r.lat, lon = r.lon;
     if (lat == null || lon == null) {
       const ang = i * 2.399, rad = 0.00012 * (1 + i * 0.12);
       lat = sl.lat + Math.sin(ang) * rad; lon = sl.lon + Math.cos(ang) * rad;
     }
-    if (sensorMarks[r.sensor_key]) layers.sensors.removeLayer(sensorMarks[r.sensor_key]);
     const icon = L.divIcon({ className: "",
       html: `<div class="sensor-mark" style="background:${col}"></div>`,
       iconSize: [18, 18], iconAnchor: [9, 9] });
@@ -166,6 +175,33 @@ function renderSensors(rows) {
     m.on("dragend", e => assignSensor(r.sensor_key, latlon(e.target.getLatLng())));
     m.addTo(layers.sensors);
     sensorMarks[r.sensor_key] = m;
+  });
+
+  renderOthers(other);
+}
+
+function renderOthers(rows) {
+  document.getElementById("other-label").style.display = rows.length ? "" : "none";
+  const box = document.getElementById("others");
+  box.innerHTML = "";
+  const groups = {};
+  rows.forEach(r => (groups[r.kind] = groups[r.kind] || []).push(r));
+  Object.keys(groups).sort().forEach(k => {
+    const wrap = document.createElement("div");
+    wrap.className = "ogroup";
+    wrap.innerHTML = `<div class="okind">${KIND_LABEL[k] || k} · ${groups[k].length}</div>`;
+    groups[k].forEach(r => {
+      const row = document.createElement("div");
+      row.className = "orow";
+      row.innerHTML = `<span class="oname">${r.friendly_name || r.sensor_key}</span>
+        <span class="oago">${fmtAgo(r.at_utc)}</span>`;
+      row.querySelector(".oname").onclick = () => {
+        const v = prompt("Name this device:", r.friendly_name || "");
+        if (v !== null) assignSensor(r.sensor_key, { friendly_name: v.trim() });
+      };
+      wrap.appendChild(row);
+    });
+    box.appendChild(wrap);
   });
 }
 

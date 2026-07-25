@@ -86,6 +86,16 @@ def sensor_key(rec: dict) -> str:
 
 def guess_kind(rec: dict) -> str:
     model = str(rec.get("model", ""))
+    dtype = str(rec.get("type", "")).upper()
+    has_pressure = any(k in rec for k in
+                       ("pressure_kPa", "pressure_PSI", "pressure_bar", "pressure_kpa"))
+    # TPMS transmitters report a (tire) temperature too, so classify them FIRST.
+    if dtype == "TPMS" or has_pressure:
+        return "tpms"
+    if "Security" in model or model.startswith("DSC"):
+        return "security"
+    if any(x in model for x in ("Remote", "Megacode", "Cardin", "Secplus", "Markisol")):
+        return "remote"
     if "986" in model:
         return "fridge_freezer"
     has_t = "temperature_C" in rec or "temperature_F" in rec
