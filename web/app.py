@@ -8,6 +8,7 @@ Endpoints:
   GET /api/sensors/<key>/history -> 5-minute buckets for a sensor over N hours
 """
 import os
+from datetime import datetime, timedelta, timezone
 
 import psycopg2
 import psycopg2.extras
@@ -132,6 +133,59 @@ def unassign(key):
         (key,),
     )
     return jsonify({"ok": True})
+
+
+@app.route("/history")
+def history_page():
+    return send_from_directory(app.static_folder, "history.html")
+
+
+def _parse_iso(value, default):
+    if not value:
+        return default
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return default
+
+
+@app.route("/api/sensors/<path:key>/series")
+def series(key):
+    now = datetime.now(timezone.utc)
+    frm = _parse_iso(request.args.get("from"), now - timedelta(hours=24))
+    to = _parse_iso(request.args.get("to"), now)
+    span_h = max(0.1, (to - frm).total_seconds() / 3600)
+    bucket = "5 minutes" if span_h <= 48 else ("1 hour" if span_h <= 24 * 35 else "1 day")
+    rows = query(
+        """SELECT time_bucket(%s::interval, at_utc) AS b,
+                  avg(temperature_c) AS c, min(temperature_c) AS lo,
+                  max(temperature_c) AS hi, avg(humidity) AS h
+           FROM readings
+           WHERE sensor_key = %s AND at_utc >= %s AND at_utc <= %s
+           GROUP BY b ORDER BY b""",
+        (bucket, key, frm, to),
+    )
+    for r in rows:
+        r["b"] = r["b"].isoformat()
+    return jsonify({"bucket": bucket, "from": frm.isoformat(),
+                    "to": to.isoformat(), "points": rows})
+
+
+@app.route("/api/sensors/<path:key>/calendar")
+def calendar(key):
+    days = max(7, min(int(request.args.get("days", 120)), 400))
+    rows = query(
+        """SELECT (time_bucket('1 day', at_utc, 'America/Chicago'))::date AS d,
+                  avg(temperature_c) AS c, min(temperature_c) AS lo,
+                  max(temperature_c) AS hi, count(*) AS n
+           FROM readings
+           WHERE sensor_key = %s AND at_utc > now() - (%s || ' days')::interval
+           GROUP BY d ORDER BY d""",
+        (key, days),
+    )
+    for r in rows:
+        r["d"] = r["d"].isoformat()
+    return jsonify(rows)
 
 
 if __name__ == "__main__":

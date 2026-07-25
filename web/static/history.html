@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Isotherm — History</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly-basic.min.js"></script>
+</head>
+<body>
+  <div id="history">
+    <header class="hhead">
+      <a href="/" class="navlink">&larr; map</a>
+      <h1>Isotherm · history</h1>
+      <select id="sensor" aria-label="sensor"></select>
+    </header>
+    <div class="section-label">Calendar · daily average — click a day to zoom the graph</div>
+    <div id="calendar"></div>
+    <div class="section-label" style="margin-top:18px">Temperature — drag to zoom, scroll to pan, use the slider below</div>
+    <div id="chart"></div>
+  </div>
+  <script src="/static/history.js"></script>
+</body>
+</html>
