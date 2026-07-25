@@ -93,6 +93,27 @@ services:
       - ./data/raw:/data/raw
     networks: [isotherm]
 
+  # ---- Web dashboard + API (map, live sensors, history) -----------------
+  web:
+    build: ./web
+    image: isotherm-web:latest
+    container_name: isotherm-web
+    restart: unless-stopped
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      PGHOST: timescaledb
+      PGUSER: ${PGUSER:-isotherm}
+      PGPASSWORD: ${PGPASSWORD:-isotherm}
+      PGDATABASE: ${PGDATABASE:-isotherm}
+      CONFIG_DIR: /config
+    volumes:
+      - ./config:/config:ro
+    ports:
+      - "${WEB_PORT:-8471}:8000"
+    networks: [isotherm]
+
 networks:
   isotherm:
     driver: bridge

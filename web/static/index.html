@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Isotherm — Estate</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <header>
+        <h1>Isotherm</h1>
+        <div class="sub" id="sub">estate · live</div>
+      </header>
+      <div id="stats" class="stats"></div>
+      <div class="section-label">Live sensors</div>
+      <div class="hint">Drag a marker to place it · click a name to rename</div>
+      <div id="sensors"></div>
+      <div class="section-label">Temperature</div>
+      <div id="legend" class="legend"></div>
+    </aside>
+    <div id="map"></div>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
