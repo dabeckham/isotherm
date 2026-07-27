@@ -48,6 +48,18 @@ header .sub { color:var(--muted); font-size:13px; margin-top:2px; }
 .u-legend { color:var(--muted); font-size:11px; }
 .u-legend .u-marker { border-radius:2px; }
 .u-title { color:var(--text); }
+#sensors-page { max-width:1100px; margin:0 auto; padding:20px 22px; }
+.tgroup { margin-bottom:22px; }
+.stbl { width:100%; border-collapse:collapse; font-size:13px; }
+.stbl th { text-align:left; color:var(--muted); font-weight:400; font-size:11px;
+  text-transform:uppercase; letter-spacing:.4px; padding:6px 8px; border-bottom:1px solid var(--line); }
+.stbl td { padding:5px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
+.stbl .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--muted); font-size:12px; }
+.stbl .muted { color:var(--muted); }
+.ri { background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:6px;
+  padding:5px 8px; font-size:13px; width:100%; box-sizing:border-box; }
+.ri:focus { border-color:var(--accent); outline:none; }
+.sd { display:inline-block; width:10px; height:10px; border-radius:50%; }
 .sensor .temp { font-size:16px; font-weight:600; }
 .sensor .meta { color:var(--muted); font-size:11px; margin-top:5px; display:flex; gap:10px; flex-wrap:wrap; }
 .sensor canvas { display:block; width:100%; height:46px; margin-top:8px; }

@@ -184,6 +184,11 @@ def tile(layer, z, x, y):
     return _img_response(data)
 
 
+@app.route("/sensors")
+def sensors_page():
+    return send_from_directory(app.static_folder, "sensors.html")
+
+
 @app.route("/history")
 def history_page():
     return send_from_directory(app.static_folder, "history.html")
