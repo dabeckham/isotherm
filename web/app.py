@@ -8,12 +8,13 @@ Endpoints:
   GET /api/sensors/<key>/history -> 5-minute buckets for a sensor over N hours
 """
 import os
+import urllib.request
 from datetime import datetime, timedelta, timezone
 
 import psycopg2
 import psycopg2.extras
 import yaml
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory
 
 CONFIG_DIR = os.environ.get("CONFIG_DIR", "/config")
 PG = dict(
@@ -23,6 +24,19 @@ PG = dict(
     password=os.environ.get("PGPASSWORD", "isotherm"),
     dbname=os.environ.get("PGDATABASE", "isotherm"),
 )
+
+# Map tiles are served local-first (drop drone orthophoto tiles into TILE_DIR),
+# then fetched from a public upstream and cached to disk. The browser only ever
+# talks to this server — no third-party calls to paint the map.
+TILE_DIR = os.environ.get("TILE_DIR", "/tiles")
+ESRI_IMAGERY = ("https://server.arcgisonline.com/ArcGIS/rest/services/"
+                "World_Imagery/MapServer/tile/{z}/{y}/{x}")
+OSM_STREETS = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+TILE_LAYERS = {
+    "estate":    {"upstream": ESRI_IMAGERY, "label": "Estate (self-hosted)"},
+    "satellite": {"upstream": ESRI_IMAGERY, "label": "Satellite"},
+    "streets":   {"upstream": OSM_STREETS,  "label": "Streets"},
+}
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
@@ -133,6 +147,41 @@ def unassign(key):
         (key,),
     )
     return jsonify({"ok": True})
+
+
+@app.route("/api/layers")
+def layers():
+    return jsonify([{"id": k, "label": v["label"]} for k, v in TILE_LAYERS.items()])
+
+
+def _img_response(data):
+    mimetype = "image/jpeg" if data[:2] == b"\xff\xd8" else "image/png"
+    return Response(data, mimetype=mimetype)
+
+
+@app.route("/tiles/<layer>/<int:z>/<int:x>/<int:y>.png")
+def tile(layer, z, x, y):
+    src = TILE_LAYERS.get(layer)
+    if not src:
+        abort(404)
+    path = os.path.join(TILE_DIR, layer, str(z), str(x), f"{y}.png")
+    if os.path.exists(path):
+        with open(path, "rb") as fh:
+            return _img_response(fh.read())
+    try:
+        url = src["upstream"].format(z=z, x=x, y=y)
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "isotherm/1.0 (self-hosted tile cache)"})
+        data = urllib.request.urlopen(req, timeout=8).read()
+    except Exception:
+        abort(502)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as fh:
+            fh.write(data)
+    except OSError:
+        pass
+    return _img_response(data)
 
 
 @app.route("/history")

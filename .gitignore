@@ -14,6 +14,9 @@ config/floorplans/*
 data/
 *.jsonl
 
+# Cached / self-hosted map tiles (imagery data, incl. drone orthophotos)
+tiles/
+
 # Python
 __pycache__/
 *.pyc

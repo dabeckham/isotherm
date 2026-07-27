@@ -108,8 +108,10 @@ services:
       PGPASSWORD: ${PGPASSWORD:-isotherm}
       PGDATABASE: ${PGDATABASE:-isotherm}
       CONFIG_DIR: /config
+      TILE_DIR: /tiles
     volumes:
       - ./config:/config:ro
+      - ./tiles:/tiles
     ports:
       - "${WEB_PORT:-8471}:8000"
     networks: [isotherm]

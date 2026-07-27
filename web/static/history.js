@@ -37,7 +37,7 @@ fetch("/api/sensors/latest").then(r => r.json()).then(rows => {
     '<div class="hint">No environmental sensors yet.</div>';
 });
 
-function load(key) { currentKey = key; loadCalendar(key); loadSeries(key); }
+function load(key) { currentKey = key; renderPresets(); loadCalendar(key); loadSeries(key); }
 
 function loadSeries(key, from, to) {
   let url = `/api/sensors/${encodeURIComponent(key)}/series`;
@@ -48,37 +48,56 @@ function loadSeries(key, from, to) {
   fetch(url).then(r => r.json()).then(drawChart).catch(() => {});
 }
 
+let uplot = null;
+
 function drawChart(d) {
-  const x = d.points.map(p => p.b);
-  const avg = d.points.map(p => p.c != null ? +c2f(p.c).toFixed(2) : null);
-  const lo = d.points.map(p => p.lo != null ? +c2f(p.lo).toFixed(2) : null);
-  const hi = d.points.map(p => p.hi != null ? +c2f(p.hi).toFixed(2) : null);
-  const traces = [
-    { x, y: hi, mode: "lines", line: { width: 0 }, showlegend: false, hoverinfo: "skip" },
-    { x, y: lo, mode: "lines", fill: "tonexty", fillcolor: "rgba(120,150,180,.16)",
-      line: { width: 0 }, showlegend: false, hoverinfo: "skip", name: "min–max" },
-    { x, y: avg, mode: "lines", line: { color: "#38bda6", width: 2 }, name: "°F" },
-  ];
-  const layout = {
-    paper_bgcolor: "#0f1319", plot_bgcolor: "#0f1319", font: { color: "#8ea1b5" },
-    margin: { l: 46, r: 14, t: 8, b: 24 }, height: 430, showlegend: false,
-    xaxis: {
-      gridcolor: "#2a3543", rangeslider: { bgcolor: "#151b24", thickness: 0.08 },
-      rangeselector: {
-        bgcolor: "#1b2330", activecolor: "#38bda6", font: { color: "#e6edf5" },
-        buttons: [
-          { count: 1, label: "1d", step: "day", stepmode: "backward" },
-          { count: 7, label: "7d", step: "day", stepmode: "backward" },
-          { count: 30, label: "30d", step: "day", stepmode: "backward" },
-          { step: "all", label: "all" },
-        ],
-      },
-    },
-    yaxis: { title: "°F", gridcolor: "#2a3543", zeroline: false },
+  const xs = d.points.map(p => Math.floor(new Date(p.b).getTime() / 1000));
+  const mn = d.points.map(p => p.lo != null ? +c2f(p.lo).toFixed(2) : null);
+  const mx = d.points.map(p => p.hi != null ? +c2f(p.hi).toFixed(2) : null);
+  const av = d.points.map(p => p.c != null ? +c2f(p.c).toFixed(2) : null);
+  const el = document.getElementById("chart");
+  const opts = {
+    width: el.clientWidth || 900, height: 420,
+    scales: { x: { time: true } },
+    cursor: { drag: { x: true, y: false } },
+    axes: [
+      { stroke: "#8ea1b5", grid: { stroke: "#232c38" }, ticks: { stroke: "#232c38" } },
+      { stroke: "#8ea1b5", grid: { stroke: "#232c38" }, ticks: { stroke: "#232c38" }, size: 52,
+        values: (u, vals) => vals.map(v => v + "°") },
+    ],
+    series: [
+      {},
+      { label: "min", stroke: "rgba(130,160,190,.6)", width: 1, points: { show: false } },
+      { label: "max", stroke: "rgba(130,160,190,.6)", width: 1, points: { show: false } },
+      { label: "avg °F", stroke: "#38bda6", width: 2, points: { show: false } },
+    ],
+    bands: [{ series: [2, 1], fill: "rgba(120,150,180,.14)" }],
   };
-  Plotly.react("chart", traces, layout,
-    { scrollZoom: true, responsive: true, displayModeBar: false });
+  if (uplot) uplot.destroy();
+  el.innerHTML = "";
+  uplot = new uPlot(opts, [xs, mn, mx, av], el);
 }
+
+function rangeDays(days) {
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 86400000);
+  loadSeries(currentKey, from.toISOString(), to.toISOString());
+}
+
+function renderPresets() {
+  const box = document.getElementById("presets");
+  if (!box || box.childElementCount) return;
+  [["24h", 1], ["7d", 7], ["30d", 30], ["all", 400]].forEach(([label, days]) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.onclick = () => rangeDays(days);
+    box.appendChild(b);
+  });
+}
+
+window.addEventListener("resize", () => {
+  if (uplot) uplot.setSize({ width: document.getElementById("chart").clientWidth || 900, height: 420 });
+});
 
 function loadCalendar(key) {
   fetch(`/api/sensors/${encodeURIComponent(key)}/calendar?days=120`)

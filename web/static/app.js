@@ -33,10 +33,19 @@ const CAT_STYLE = {
 };
 
 const map = L.map("map", { zoomControl: true, preferCanvas: true }).setView([30.4196, -95.557], 16);
-L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+
+// Base imagery, all served through this server: local drone tiles first, public
+// imagery fetched + cached as fallback. The browser never calls a third party.
+const baseLayer = id => L.tileLayer(`/tiles/${id}/{z}/{x}/{y}.png`, {
   maxZoom: 21, maxNativeZoom: 19,
-  attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
-}).addTo(map);
+  attribution: "Isotherm · self-hosted tiles (Esri / OSM fallback)",
+});
+const baseLayers = {
+  "Estate (self-hosted)": baseLayer("estate"),
+  "Satellite": baseLayer("satellite"),
+  "Streets": baseLayer("streets"),
+};
+baseLayers["Estate (self-hosted)"].addTo(map);
 
 const layers = {
   fiber: L.layerGroup().addTo(map),
@@ -46,7 +55,7 @@ const layers = {
   homes: L.layerGroup().addTo(map),
   sensors: L.layerGroup().addTo(map),
 };
-L.control.layers(null, {
+L.control.layers(baseLayers, {
   "Fiber": layers.fiber, "Utilities (Cat5/power/water/…)": layers.utility,
   "Pedestals": layers.pedestals, "Cameras": layers.cameras,
   "Homes": layers.homes, "Sensors": layers.sensors,
